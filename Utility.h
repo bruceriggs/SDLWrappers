@@ -4,10 +4,12 @@
 #include "SDLWindow.h"
 #include "SDLTexture.h"
 #include "SDLInput.h"
+#include "SDLAudio.h"
 
 #define win SDLWindow::Instance()
 #define tex SDLTexture::Instance()
 #define input SDLInput::Instance()
+#define audio SDLAudio::Instance()
 
 #define HALFWIDTH(imageId) (SDLTexture::Instance()->ImageWidth(imageId) >> 1)
 #define HALFHEIGHT(imageId) (SDLTexture::Instance()->ImageHeight(imageId) >> 1)

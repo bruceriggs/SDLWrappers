@@ -12,7 +12,7 @@ private:
         Mix_Chunk* effect;
         const char* fileName;
         int refCount;
-        int currentChannel;
+        vector<int> channels;
 
         SoundEffect(Mix_Chunk* effect, const char* fileName);
     };
@@ -20,19 +20,26 @@ private:
     // Music
     Mix_Music* music;
     bool pausedMusic;
+    int soundCount;
 
     // Vector of sound effects
     vector<SoundEffect> soundEffects;
 
     // Helper Method
     void StartMusic(int loop, bool overridePause, int milliseconds, bool fade);
+    int StartSound(int soundIndex, int loop, int milliseconds, bool fade);
     bool ValidSoundIndex(int soundIndex) const;
+    
 
     // Singleton
     SDLAudio();
     SDLAudio(const SDLAudio& rhs);
     SDLAudio& operator=(const SDLAudio& rhs);
 public:
+
+    // Friend function for Sound Effect Unhooking
+    friend void ChannelFinished(int channel);
+
     // Destructor
     ~SDLAudio();
 
@@ -87,15 +94,31 @@ public:
     void UnloadSound(int soundIndex);
 
     // Play sound
-    void PlaySoundEffect(int soundIndex, int loop = 0);
-
+    int PlaySoundEffect(int soundIndex, int loop = 0);
 
     // Stop sound
+    void StopSoundEffect(int soundIndex, int channel);
+
     // Fade in sound
+    int FadeInSoundEffect(int soundIndex, int milliseconds, int loop = 0);
+
     // Fade out sound
+    void FadeOutSoundEffect(int soundIndex, int channel, int milliseconds);
+
     // Pause sound
+    void PauseSoundEffect(int soundIndex, int channel);
+
     // Mute sound
+    void MuteSoundEffects();
+
+    // Set the sound effects volume
+    void SoundEffectsVolume(int newVolume);
+
+    // Get the sound effects volume
+    int SoundEffectsVolume();
+
     // Mute sound & music
+    void Mute();
 
 };
 

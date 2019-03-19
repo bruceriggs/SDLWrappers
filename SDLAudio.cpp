@@ -1,13 +1,23 @@
 #include "SDLAudio.h"
 #include <cassert>
+#include <cstring>
 
+#include <iostream>
+#include <string>
+using std::cout;
+using std::string;
+
+// Sound Effect Constructor
 SDLAudio::SoundEffect::SoundEffect(Mix_Chunk* effect, const char* fileName) : effect(effect),
-fileName(fileName), refCount(1), currentChannel(-1) {}
+fileName(fileName), refCount(1) {
+    channels.clear();
+}
 
 // Constructor
 SDLAudio::SDLAudio() {
     music = nullptr;
     pausedMusic = false;
+    soundCount = 0;
 }
 
 // Assignment operator & Copy Constructor (Not used)
@@ -41,6 +51,9 @@ void SDLAudio::Init() {
     // Open audio channels
     assert(Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT,
         MIX_DEFAULT_CHANNELS, 4096) != -1 && "Unable to Open Audio channels");
+
+    // Set the Audio Hook for finished sound effects
+    Mix_ChannelFinished((&ChannelFinished));
 }
 
 // Cleans up any dynamic memory allocated for audio
@@ -59,6 +72,8 @@ void SDLAudio::Shutdown() {
         // Clear the vector
         soundEffects.clear();
     }
+
+    soundCount = 0;
 
     // Close the audio
     Mix_CloseAudio();
@@ -161,7 +176,7 @@ void SDLAudio::MuteMusic() {
 }
 
 bool SDLAudio::ValidSoundIndex(int soundIndex) const {
-    return (soundIndex >= 0 && soundIndex < soundEffects.size());
+    return (soundIndex >= 0 && soundIndex < soundEffects.size() && soundEffects[soundIndex].refCount > 0);
 }
 
 // Loads a sound effect
@@ -204,7 +219,7 @@ int SDLAudio::LoadSound(const char* fileName) {
 // Unloads a sound
 void SDLAudio::UnloadSound(int soundIndex) {
     // Only bother if given a valid index
-    if (ValidSoundIndex(soundIndex) && soundEffects[soundIndex].refCount > 0) {
+    if (ValidSoundIndex(soundIndex)) {
         // Decrement the refCount at the chosen index
         soundEffects[soundIndex].refCount--;
         // If the refCount has hit 0, unload the sound
@@ -218,11 +233,107 @@ void SDLAudio::UnloadSound(int soundIndex) {
     }
 }
 
-//int Mix_PlayChannel(int channel, Mix_Chunk *chunk, int loops)
-void SDLAudio::PlaySoundEffect(int soundIndex, int loop) {
-    // Only bother if given a valid index
-    if (ValidSoundIndex(soundIndex)) {
-        soundEffects[soundIndex].currentChannel = Mix_PlayChannel(-1, soundEffects[soundIndex].effect, loop);
-        assert(soundEffects[soundIndex].currentChannel != -1 && "An error occurred while attempting to play a sound effect");
+// Plays a sound effect
+int SDLAudio::PlaySoundEffect(int soundIndex, int loop) {
+    return StartSound(soundIndex, loop, 0, false);
+}
+
+// This function is called when a SoundEffect is finished playing. It removes a channel from a SoundEffect
+void ChannelFinished(int channel) {
+    cout << "Sound finished... ";
+    // For every sound effect
+    for (unsigned int ii = 0; ii < SDLAudio::Instance()->soundEffects.size(); ++ii) {
+        // For every channel it has
+        for (unsigned int jj = 0; jj < SDLAudio::Instance()->soundEffects[ii].channels.size(); ++jj) {
+            if (channel == SDLAudio::Instance()->soundEffects[ii].channels[jj]) {
+                SDLAudio::Instance()->soundEffects[ii].channels.erase(SDLAudio::Instance()->soundEffects[ii].channels.begin() + jj);
+                SDLAudio::Instance()->soundCount -= 1;
+                cout << "And removed! " << SDLAudio::Instance()->soundCount << "\n";
+                return;
+            }
+        }
     }
+}
+
+// Stop sound
+void SDLAudio::StopSoundEffect(int soundIndex, int channel) {
+    // Don't bother if it's a bad index
+    if (ValidSoundIndex(soundIndex) && channel != -1) {
+        for (unsigned int ii = 0; ii < soundEffects[soundIndex].channels.size(); ++ii) {
+            // If we have this channel... stop it
+            if (soundEffects[soundIndex].channels[ii] == channel) {
+                Mix_HaltChannel(soundEffects[soundIndex].channels[ii]);
+                // Callback gets called automatically
+            }
+        }
+    }
+}
+
+// Fade in sound
+int SDLAudio::FadeInSoundEffect(int soundIndex, int milliseconds, int loop) {
+    return StartSound(soundIndex, loop, milliseconds, true);
+}
+
+// Actually starts the sound effect. This function is shared between Play and FadeIn
+int SDLAudio::StartSound(int soundIndex, int loop, int milliseconds, bool fade) {
+    // Only bother if given a valid index
+    int channel = -1;
+    if (ValidSoundIndex(soundIndex)) {
+        if (!fade) {
+            channel = Mix_PlayChannel(-1, soundEffects[soundIndex].effect, loop);
+        }
+        else {
+            channel = Mix_FadeInChannel(-1, soundEffects[soundIndex].effect, loop, milliseconds);
+        }
+        string temp(Mix_GetError());
+        // If there are no channels left, it will not play. This is okay.
+        if (channel == -1 && strcmp(Mix_GetError(), "No free channels available") != 0) {
+            // Any other reason though,... freak out
+            assert(channel != -1 && "An error occurred while attempting to play a sound effect");
+        }
+        // If it played
+        else if (channel != -1) {
+            // Keep track
+            ++soundCount;
+            cout << "Played: " << soundCount << "\n";
+            soundEffects[soundIndex].channels.push_back(channel);
+        }
+    }
+    return channel;
+}
+
+// Fade out sound
+void SDLAudio::FadeOutSoundEffect(int soundIndex, int channel, int milliseconds) {
+    // Don't bother if the index is bad
+    if (ValidSoundIndex(soundIndex)) {
+        Mix_FadeOutChannel(channel, milliseconds);
+    }
+}
+
+// Pause sound
+void SDLAudio::PauseSoundEffect(int soundIndex, int channel) {
+    if (ValidSoundIndex(soundIndex)) {
+        Mix_Pause(channel);
+    }
+}
+
+// Mute sound
+void SDLAudio::MuteSoundEffects() {
+    Mix_Volume(-1, 0);
+}
+
+// Set the sound effects volume, 0 = mute, 128 = max
+void SDLAudio::SoundEffectsVolume(int newVolume) {
+    Mix_Volume(-1, newVolume);
+}
+
+// Get the sound effects volume
+int SDLAudio::SoundEffectsVolume() {
+    return Mix_Volume(-1, -1);
+}
+
+// Mute sound & music
+void SDLAudio::Mute() {
+    MuteMusic();
+    MuteSoundEffects();
 }
