@@ -4,7 +4,10 @@ Wrappers for SDL2 that make using them easier.
 #### Purpose
 Once you have SDL2 libraries and includes included into your project, these wrappers make creating windows and checking input and loading images pretty easy.
 
-### Library Versions
+#### Utility.h? What's that?
+The Utility.h file simply adds a bunch of useful macros to shorten your code. For example, would you rather type `SDLWindow::Instance()->Clear()` or `win->Clear()`? Well the Utility.h has a #define to create the `win` part. Just check out the file, you'll see what I mean.
+
+#### Library Versions
 * SDL2 - 2.0.9
   * https://www.libsdl.org/release/SDL2-devel-2.0.9-VC.zip
 * SDL2 Image - 2.0.4
@@ -12,7 +15,7 @@ Once you have SDL2 libraries and includes included into your project, these wrap
 * SDL2 Mixer - 2.0.4
   * https://www.libsdl.org/projects/SDL_mixer/release/SDL2_mixer-devel-2.0.4-VC.zip
 
-### Project Specifications
+#### Project Specifications
 Your project will have to include the include directories for
 * SDL
 * SDL Image
